@@ -1,5 +1,4 @@
 import pygame
-import random
 import math
 from settings import *
 from objects import Player, Tube, TubeController
@@ -26,21 +25,27 @@ tubes = TubeController()
 tubes.create_pair()
 
 # Score
-score_value = 0
+score_value = [0]
 font = pygame.font.Font('freesansbold.ttf', 32)
 textX = 10
 textY = 10
 
 
 def show_score(x, y):
-    score = font.render("Score: " + str(score_value), True, (255, 255, 255))
+    score = font.render("Score: " + str(score_value[0]), True, (255, 255, 255))
     screen.blit(score, (x, y))
+
+def reset_game():
+    global score_value, player, tubes
+    score_value[0] = 0
+    player = Player(playerImg)
+    tubes = TubeController()
 
 
 # Game loop
 running = True
 while running:
-    pygame.time.delay(10)
+    pygame.time.delay(DELAY)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -56,6 +61,7 @@ while running:
     tubes.update(screen)
 
     # player
-    player.update(screen, tubes.tubes)
+    if not player.update(screen, tubes.tubes, score_value):
+        reset_game()
 
     pygame.display.update()
