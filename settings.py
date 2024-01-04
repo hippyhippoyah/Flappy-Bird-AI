@@ -19,7 +19,7 @@ PLAYER_HEIGHT = 50
 # Tube Dimensions
 TUBE_WIDTH = 150
 TUBE_HEIGHT = 800
-GAP_SIZE = 150
+GAP_SIZE = 200
 
 
 # Mechanics

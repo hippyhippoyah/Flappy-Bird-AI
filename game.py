@@ -22,7 +22,6 @@ player = Player(playerImg)
 
 # Tubes
 tubes = TubeController()
-tubes.create_pair()
 
 # Score
 score_value = [0]
@@ -45,7 +44,9 @@ def reset_game():
 # Game loop
 running = True
 while running:
+    # delay
     pygame.time.delay(DELAY)
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -54,14 +55,14 @@ while running:
     screen.fill((255, 0, 0))
     screen.blit(background, (0, 0))
 
-    # score
-    show_score(10, 10)
-
     # tubes
     tubes.update(screen)
 
     # player
-    if not player.update(screen, tubes.tubes, score_value):
+    if not player.update(screen, tubes.tubes, score_value=score_value):
         reset_game()
+
+    # score
+    show_score(10, 10)
 
     pygame.display.update()

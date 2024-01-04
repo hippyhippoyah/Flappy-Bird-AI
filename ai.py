@@ -3,14 +3,16 @@ from ai_settings import *
 from settings import *
 from objects import Player, Tube, TubeController
 import pygame
-import random
+import datetime
 
 
-def weight_perturbation(model):
+NUM_BIRDS = NUM_BIRDS_HIGH + NUM_BIRDS_LOW + 1  
+
+def weight_perturbation(model, amount):
     for layer in model.layers:
         trainable_weights = layer.trainable_variables
         for weight in trainable_weights:
-            random_weights = tf.random.uniform(tf.shape(weight), -0.1, 0.1, dtype=tf.float32)
+            random_weights = tf.random.uniform(tf.shape(weight), -amount, amount, dtype=tf.float32)
             weight.assign_add(random_weights)
 
 
@@ -26,36 +28,34 @@ background = pygame.image.load(BACKGROUND_IMG)
 # Title
 pygame.display.set_caption("Flappy Bird")
 
-
-# input
-# The Birds Y position
-# The Birds velocity
-# The Birds distance from the pipe
-# The Y position of the top pipe
-# The Y position of the bottom pipe
-
-
+# Create starting player
 best_player = tf.keras.models.Sequential([
         tf.keras.layers.InputLayer(input_shape=(5,)),
-        tf.keras.layers.Dense(4, kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01)),
-        tf.keras.layers.Dense(4, kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01)),
-        tf.keras.layers.Dense(1, activation='sigmoid')
+        tf.keras.layers.Dense(4,activation='tanh'),
+        tf.keras.layers.Dense(4,activation='tanh'),
+        tf.keras.layers.Dense(1, activation='tanh')
 ])
 
+# Do GENERATIONS generations
+for generation in range(1, GENERATIONS + 1):
+    print(f'Generation: {generation}')
 
-for i in range(GENERATIONS):
-    print(f'Generation: {i}')
-    # make 10 ais
-    players = []
-    for i in range(NUM_BIRDS):
+    # create players
+    players = [best_player]
+    for i in range(NUM_BIRDS_HIGH):
         # copy the best_player
         new_player = tf.keras.models.clone_model(best_player)
+        new_player.set_weights(best_player.get_weights())
+        # "mutate"
+        weight_perturbation(new_player, AMOUNT_HIGH * 0.95 ** min(generation, 40))
+        players.append(new_player)
 
-        # mutate it randomly a bit
-        weight_perturbation(new_player)
-
-        #here 
-    
+    for i in range(NUM_BIRDS_LOW):
+        # copy the best_player
+        new_player = tf.keras.models.clone_model(best_player)
+        new_player.set_weights(best_player.get_weights())
+        # "mutate"
+        weight_perturbation(new_player, AMOUNT_LOW * 0.95 ** min(generation, 40))
         players.append(new_player)
 
     # have them all play
@@ -66,15 +66,21 @@ for i in range(GENERATIONS):
 
     # Tubes
     tubes = TubeController()
-    tubes.create_pair()
 
     # play the game
     alive = NUM_BIRDS
+    save_weights = False
     while alive > 1:
         # pygame.time.delay(DELAY)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+        # option to save weights
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE]:
+            save_weights = True
+            print('Will save weights')
 
         # background
         screen.fill((255, 0, 0))
@@ -90,16 +96,21 @@ for i in range(GENERATIONS):
                 if not bird.update(screen, tubes.tubes, ai=players[i], tube_controller=tubes):
                     alive -= 1
 
-
         pygame.display.update()
     
+    # set best_player to the remaining one
     for i in range(NUM_BIRDS):
         if birds[i].alive:
             break
-    # i is the best
+     # i is the index of the best
     best_player = players[i]
-    
 
+    if save_weights or generation % 10 == 0:
+        save_file = f'./weights/{datetime.datetime.now()}'
+        best_player.save_weights(save_file)
+        print(f'Weights saved to {save_file}')
 
+save_file = f'./weights/{datetime.datetime.now()}'
+best_player.save_weights(save_file)
+print(f'Weights saved to {save_file}')
 print('done')
-

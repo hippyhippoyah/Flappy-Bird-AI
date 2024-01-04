@@ -3,9 +3,7 @@ import random
 import numpy as np
 from settings import *
 
-
 class Player:
-
     def __init__(self, img):
         self.img = img
         self.x = WIDTH / 4
@@ -15,15 +13,12 @@ class Player:
         self.alive = True
 
     def update(self, screen, tubes, score_value=[0], ai=None, tube_controller=None):
-        # change distance
         # hitbox
         if SHOW_HITBOX:
             pygame.draw.rect(screen, (0, 0, 0), pygame.Rect(self.x, self.y, PLAYER_WIDTH, PLAYER_HEIGHT))
 
         # update position and velocity
         self.y += self.vel
-        
-        
 
         if ai is None:
             keys = pygame.key.get_pressed()
@@ -34,11 +29,9 @@ class Player:
             else:
                 self.can_jump = True
         else:
-            # get the prediction need to add distance_to_tube top_y and bottom_y
-            # use tube_controller to get top_y and bottom_y and x distance
-            top_y, bottom_y, x_distance = tube_controller.get_inputs(self.x)
+            top_y, bottom_y, tube_x = tube_controller.get_inputs(self.x)
 
-            prediction = ai.predict(np.array([[-self.y/1000, -self.vel, -x_distance/1000, -top_y/1000, -bottom_y/1000]]))[0][0]
+            prediction = ai.predict(np.array([[self.y, self.vel, top_y, bottom_y, tube_x]]), verbose=False)[0][0]
             if prediction > 0.9:
                 if self.can_jump:
                     self.can_jump = False
@@ -51,18 +44,6 @@ class Player:
         if self.vel > MAX_FALL_SPEED:
             self.vel = MAX_FALL_SPEED
 
-        # check collision
-        '''
-        if self.y + PLAYER_HEIGHT > HEIGHT:
-            self.vel = 0
-            self.y = HEIGHT - PLAYER_HEIGHT
-        '''
-        '''
-        if self.y < 0:
-            self.vel = 0
-            self.y = 0
-        '''
-
         # check if hit ground
         lose = self.y + PLAYER_HEIGHT > HEIGHT or self.y < 0
 
@@ -70,18 +51,9 @@ class Player:
         for tube in tubes:
             if self.x + PLAYER_WIDTH > tube.x and self.x < tube.x + TUBE_WIDTH:
                 if self.y < tube.y + TUBE_HEIGHT and self.y + PLAYER_HEIGHT > tube.y:
-                    # collision - break or something
-
                     lose = True
                     break
-                '''
-                nexty = self.y + self.vel
-                if nexty < tube.y + TUBE_HEIGHT and nexty + PLAYER_HEIGHT > tube.y:
-                    if self.vel > 0:
-                        self.vel = tube.y - (self.y + PLAYER_HEIGHT)
-                    elif self.vel < 0:
-                        self.vel =  (tube.y + TUBE_HEIGHT) - self.y
-                '''
+
             elif tube.addPoint and self.x > tube.x + TUBE_WIDTH:
                 tube.addPoint = False
                 score_value[0] += 1
@@ -110,6 +82,7 @@ class TubeController:
         self.bottomImg = pygame.transform.scale(pygame.image.load(TUBE_BOTTOM_IMG), (TUBE_WIDTH, TUBE_HEIGHT))
         self.topImg = pygame.transform.scale(pygame.image.load(TUBE_TOP_IMG), (TUBE_WIDTH, TUBE_HEIGHT))
         self.remaining = DISTANCE_BETWEEN_TUBES
+        self.create_pair()
 
     def update(self, screen):
         i = 0
@@ -133,8 +106,6 @@ class TubeController:
    
     # returns top_y, bottom_y, x_distance
     def get_inputs(self, player_x):
-        
-        # bottom, top
         for i in range(len(self.tubes)):
             bottom_tube = self.tubes[i]
             if player_x < bottom_tube.x + TUBE_WIDTH:
